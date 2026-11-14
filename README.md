@@ -1,72 +1,85 @@
 # Train Ticket Demand Prediction
 
-A data science project exploring train ticket sales and predicting ticket demand using feature engineering, exploratory data analysis, and regression models.
+A machine learning project exploring train ticket sales, pricing and demand patterns using feature engineering, exploratory data analysis and regression modelling.
 
-The project follows an end-to-end machine learning workflow, from raw data preparation and feature engineering to model training, comparison, and evaluation.
+The main workflow estimates cumulative ticket sales using train, route, pricing, booking and travel-related features. A separate modelling workflow explores seat-count estimation using alternative regression approaches.
 
 ## Project Workflow
-
-The project is organized into Jupyter notebooks and a supplementary Python command-line adapter.
 
 | Notebook / File | Description |
 |---|---|
 | `0_country_selection.ipynb` | Selects the country and corresponding holiday calendar, followed by initial data exploration. |
-| `1_feature_gen_data_cleaning.ipynb` | Cleans the dataset and generates date-based, holiday, and route-level features. |
-| `2_model_training.ipynb` | Trains and compares regression models for ticket demand estimation. |
-| `Models_Finetuned.ipynb` | Explores an alternative, fine-tuned demand-modelling workflow. |
-| `train_demand_adapter.py` | Provides a command-line interface for training and evaluating Statsmodels and scikit-learn models. |
+| `1_feature_gen_data_cleaning.ipynb` | Cleans the data and generates date-based, holiday and route-level features. |
+| `2_model_training.ipynb` | Uses LASSO-based feature selection followed by linear regression to estimate cumulative ticket sales. |
+| `Models_Finetuned.ipynb` | Explores seat-count estimation using OLS, Poisson and Negative Binomial regression, with additional WLS modelling. |
+| `train_demand_adapter.py` | Command-line interface for training and evaluating Statsmodels and scikit-learn models. |
 
-## Exploratory Data Analysis & Results
+## Model Results
 
-| Ticket demand | Holiday correlations |
-|---|---|
-| ![Ticket demand summary](assets/ticket-demand-summary.svg)<br>*The middle half of observations is 1–3 seats; the mean is 2.38, with a long upper tail.* | ![Holiday flag correlations with mean ticket price](assets/holiday-price-correlation.svg)<br>*Holiday-flag correlations with mean ticket price are small across the six proxy calendars; correlation is not causation.* |
+### Main Model: Cumulative Sales Estimation
 
-| Route and season model terms | Held-out model evaluation |
-|---|---|
-| ![Selected route and season coefficients](assets/route-season-coefficients.svg)<br>*The fitted log-demand model assigns different coefficients to train codes; seasonal terms shown are comparatively small.* | ![LASSO test metrics](assets/lasso-test-metrics.svg)<br>*The saved LASSO test evaluation reports R² 0.841, MAE 4.12 seats, and RMSE 8.90 seats.* |
+The main notebook uses `LassoCV` for feature selection before fitting a linear regression model on the selected features.
+
+<badge color="success">Held-out test results</badge>
+
+| Metric | Result |
+|---|---:|
+| MAE | 4.12 |
+| RMSE | 8.90 |
+| R² | 0.841 |
+
+`route_sales_rank` was the strongest selected feature, while season and holiday terms had comparatively smaller contributions.
+
+### Alternative Model: Seat-Count Estimation
+
+The fine-tuned notebook explores a separate target, `num_seats_total`, and compares regression approaches using shuffled five-fold cross-validation on a 20,000-row sample.
+
+| Model | MAE | RMSE |
+|---|---:|---:|
+| OLS | 1.214 | 2.055 |
+| Poisson | 1.308 | **1.991** |
+| Negative Binomial | 1.309 | **1.991** |
+
+OLS achieved the lowest MAE, while Poisson and Negative Binomial achieved the lowest RMSE.
+
+The notebook also estimates negative price-elasticity coefficients across the three models, suggesting an association between higher prices and lower seat counts. These estimates should not be interpreted as causal effects.
+
+*Note: The two modelling workflows use different targets and evaluation methods. Their metrics are not directly comparable.*
 
 ## Getting Started
 
 ### Prerequisites
 
-- Python 3.13 or later
+- Python 3.13+
 - [Poetry](https://python-poetry.org/)
 
 ### Installation
 
-Clone the repository and navigate to its root directory:
-
 ```bash
 git clone <repository-url>
 cd train-ticket-demand-prediction
-```
-
-Install the required dependencies:
-
-```bash
 poetry install
 ```
 
 ### Running the Notebooks
 
-Launch Jupyter Notebook within the Poetry environment:
+Launch Jupyter Notebook:
 
 ```bash
 poetry run jupyter notebook
 ```
 
-Run the first three notebooks sequentially:
+Run the first three notebooks in order:
 
-1. **Country Selection:** Selects the country and holiday calendar and inspects the source dataset.
-2. **Feature Engineering:** Cleans the data and generates the features required for modelling.
-3. **Model Training:** Uses the processed dataset to train and evaluate regression models.
+1. `0_country_selection.ipynb` – Select the country and inspect the source data.
+2. `1_feature_gen_data_cleaning.ipynb` – Clean the data and generate modelling features.
+3. `2_model_training.ipynb` – Train and evaluate the main regression model.
 
-`Models_Finetuned.ipynb` provides an alternative modelling workflow.
+`Models_Finetuned.ipynb` provides a separate modelling workflow.
 
 ### Running the Command-Line Adapter
 
-The adapter accepts a prepared feature dataset and saves model reports and trained artifacts to a specified output directory.
+The adapter accepts a prepared feature dataset and saves model reports and trained artifacts to the specified output directory.
 
 ```bash
 poetry run python train_demand_adapter.py \
@@ -74,19 +87,15 @@ poetry run python train_demand_adapter.py \
     --out outputs
 ```
 
-## Data and Generated Files
+## Data and Reproducibility
 
-The project uses the following datasets:
+| File | Description |
+|---|---|
+| `train_sales.csv` | Original train ticket sales dataset. |
+| `train_sales_features.csv` | Processed dataset generated by the feature engineering notebook. |
 
-- `train_sales.csv` – Original train ticket sales dataset.
-- `train_sales_features.csv` – Processed dataset generated by the feature engineering notebook and used for model training.
+The feature dataset can be regenerated by running the notebooks in sequence. Dependencies are managed through Poetry using `pyproject.toml` and `poetry.lock`.
 
-The feature dataset can be recreated by running the notebooks in sequence.
+## Modelling Considerations
 
-Model reports, trained artifacts, and other generated outputs can be reproduced by running the respective workflows. 
-
-## Requirements and Reproducibility
-
-Project dependencies are managed using Poetry. Refer to `pyproject.toml` and `poetry.lock` for the dependency specifications.
-
-For reproducibility, run the notebooks in the documented order and ensure the required input dataset is available.
+The main workflow includes cumulative-sales-derived features such as `route_sales_rank` and `sales_diff_1`. Their availability at prediction time should be considered when interpreting the reported test performance or applying the model to future data.
